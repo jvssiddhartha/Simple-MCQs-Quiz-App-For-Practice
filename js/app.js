@@ -56,6 +56,9 @@ document.addEventListener('DOMContentLoaded', () => {
     questionList: document.getElementById('question-list'),
     emptyState: document.getElementById('questions-empty-state'),
     btnDemoSamples: document.getElementById('btn-demo-samples'),
+    btnExportBackup: document.getElementById('btn-export-backup'),
+    btnImportBackup: document.getElementById('btn-import-backup'),
+    backupFileInput: document.getElementById('backup-file-input'),
     btnEmptyAdd: document.getElementById('btn-empty-add'),
 
     // Add View
@@ -397,6 +400,65 @@ document.addEventListener('DOMContentLoaded', () => {
     showToast('Loaded sample questions!');
     await loadAndRenderQuestions();
   });
+
+  // Backup / Export Questions to JSON file
+  if (dom.btnExportBackup) {
+    dom.btnExportBackup.addEventListener('click', async () => {
+      try {
+        const questions = await window.mcqDB.getAllQuestions();
+        if (!questions || questions.length === 0) {
+          showToast('No questions to export!');
+          return;
+        }
+
+        const jsonString = await window.mcqDB.exportAllAsJSON();
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const dateStr = new Date().toISOString().slice(0, 10);
+        a.href = url;
+        a.download = `mcq_questions_backup_${dateStr}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        showToast(`✓ Downloaded backup (${questions.length} questions)!`);
+      } catch (err) {
+        console.error('Export error:', err);
+        showToast('Failed to export backup: ' + err.message);
+      }
+    });
+  }
+
+  // Restore / Import Questions from JSON file
+  if (dom.btnImportBackup) {
+    dom.btnImportBackup.addEventListener('click', () => {
+      dom.backupFileInput.value = '';
+      dom.backupFileInput.click();
+    });
+  }
+
+  if (dom.backupFileInput) {
+    dom.backupFileInput.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          const content = event.target.result;
+          const count = await window.mcqDB.importFromJSON(content);
+          await loadAndRenderQuestions();
+          showToast(`✓ Successfully restored ${count} questions!`);
+        } catch (err) {
+          console.error('Import error:', err);
+          showToast('Failed to import: ' + err.message);
+        }
+      };
+      reader.readAsText(file);
+    });
+  }
 
   // ================= Add Question / Upload / OCR =================
   dom.browseBtn.addEventListener('click', (e) => {

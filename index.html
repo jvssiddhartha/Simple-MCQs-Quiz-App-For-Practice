@@ -92,8 +92,17 @@
               <span class="section-sub">Manage and review your saved questions</span>
             </div>
             <div class="section-quick-actions" id="questions-header-actions">
-              <button class="btn btn-text btn-sm" id="btn-demo-samples" title="Add 3 sample questions for testing">
-                + Load Samples
+              <button class="btn btn-outline btn-sm" id="btn-export-backup" title="Download backup of all questions to your PC">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                <span>Backup</span>
+              </button>
+              <button class="btn btn-outline btn-sm" id="btn-import-backup" title="Restore questions from a backup file">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                <span>Restore</span>
+              </button>
+              <input type="file" id="backup-file-input" accept=".json" class="hidden">
+              <button class="btn btn-text btn-sm" id="btn-demo-samples" title="Add sample questions for testing">
+                + Samples
               </button>
             </div>
           </div>

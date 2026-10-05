@@ -298,7 +298,78 @@ class MCQDatabase {
       await this.addQuestion(sample);
     }
   }
+
+  // --- Backup & Restore (JSON) ---
+  async exportAllAsJSON() {
+    const questions = await this.getAllQuestions();
+    const backupData = {
+      app: 'MCQPractice',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      count: questions.length,
+      questions: questions
+    };
+    return JSON.stringify(backupData, null, 2);
+  }
+
+  async importFromJSON(jsonString) {
+    if (!jsonString || typeof jsonString !== 'string') {
+      throw new Error('Invalid backup file content');
+    }
+
+    let parsed;
+    try {
+      parsed = JSON.parse(jsonString);
+    } catch (e) {
+      throw new Error('Failed to parse JSON file');
+    }
+
+    let questionItems = [];
+    if (Array.isArray(parsed)) {
+      questionItems = parsed;
+    } else if (parsed && Array.isArray(parsed.questions)) {
+      questionItems = parsed.questions;
+    } else {
+      throw new Error('No valid questions array found in backup file');
+    }
+
+    if (questionItems.length === 0) {
+      throw new Error('Backup file contains 0 questions');
+    }
+
+    let importedCount = 0;
+    for (const item of questionItems) {
+      if (item && item.question) {
+        await this.addQuestion({
+          question: item.question,
+          type: item.type || (Array.isArray(item.correctAnswers) && item.correctAnswers.length > 1 ? 'multiple' : 'single'),
+          options: item.options || { A: '', B: '', C: '', D: '' },
+          correctAnswers: item.correctAnswers || [item.correctAnswer || 'A'],
+          screenshot: item.screenshot || null
+        });
+        importedCount++;
+      }
+    }
+
+    return importedCount;
+  }
+
+  // Request browser not to automatically clear IndexedDB when disk is low
+  async requestPersistentStorage() {
+    try {
+      if (navigator.storage && navigator.storage.persist) {
+        const isPersisted = await navigator.storage.persist();
+        if (isPersisted) {
+          console.log('IndexedDB persistent storage granted by browser');
+        }
+      }
+    } catch (e) {
+      console.warn('Persistent storage check error:', e);
+    }
+  }
 }
 
 // Global instance
 window.mcqDB = new MCQDatabase();
+window.mcqDB.requestPersistentStorage();
+
