@@ -680,6 +680,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     state.quiz.currentIndex = 0;
     state.quiz.userAnswers = {};
+    state.quiz.revealedAnswers = {};
     state.quiz.isCompleted = false;
 
     switchView('practice-active');
@@ -692,6 +693,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const totalQ = state.quiz.activeQuestions.length;
     const currentIdx = state.quiz.currentIndex;
     const isMulti = currentQ.type === 'multiple';
+    const isRevealed = Boolean(state.quiz.revealedAnswers[currentIdx]);
+    const qCorrect = currentQ.correctAnswers || [currentQ.correctAnswer || 'A'];
+    const currentAnswer = state.quiz.userAnswers[currentIdx];
+
+    // Determine correctness if revealed
+    let isQuestionCorrect = false;
+    let userList = [];
+    if (isMulti) {
+      userList = Array.isArray(currentAnswer) ? currentAnswer : [];
+      const sUser = [...userList].sort();
+      const sCorrect = [...qCorrect].sort();
+      isQuestionCorrect = sUser.length === sCorrect.length && sUser.every((v, i) => v === sCorrect[i]);
+    } else {
+      userList = currentAnswer ? [currentAnswer] : [];
+      isQuestionCorrect = currentAnswer === qCorrect[0];
+    }
 
     // Header counter: "Question 1 / 25"
     dom.quizCounter.textContent = `Question ${currentIdx + 1} / ${totalQ}`;
@@ -730,7 +747,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Render Options A, B, C, D
     dom.quizOptionsContainer.innerHTML = '';
     const letters = ['A', 'B', 'C', 'D'];
-    const currentAnswer = state.quiz.userAnswers[currentIdx];
 
     letters.forEach(letter => {
       const optText = currentQ.options?.[letter] || '';
@@ -742,55 +758,116 @@ document.addEventListener('DOMContentLoaded', () => {
         isSelected = currentAnswer === letter;
       }
 
+      const isCorrectOption = qCorrect.includes(letter);
+
       const optBtn = document.createElement('div');
-      optBtn.className = `quiz-opt-btn ${isSelected ? 'selected' : ''}`;
+      let btnClasses = 'quiz-opt-btn';
+      if (isSelected) btnClasses += ' selected';
+      
+      // If revealed, lock options and color code them!
+      if (isRevealed) {
+        btnClasses += ' disabled-locked';
+        if (isCorrectOption) {
+          btnClasses += ' revealed-correct';
+        } else if (isSelected && !isCorrectOption) {
+          btnClasses += ' revealed-wrong';
+        }
+      }
+      optBtn.className = btnClasses;
       optBtn.setAttribute('data-option', letter);
 
       // Icon: radio circle for single, checkbox square for multiple
-      const iconHtml = isMulti
-        ? `<div class="quiz-opt-square">${isSelected ? '✓' : ''}</div>`
-        : `<div class="quiz-opt-circle">${isSelected ? '●' : '○'}</div>`;
+      let iconHtml = '';
+      if (isMulti) {
+        const checked = isSelected || (isRevealed && isCorrectOption);
+        iconHtml = `<div class="quiz-opt-square">${checked ? '✓' : ''}</div>`;
+      } else {
+        iconHtml = `<div class="quiz-opt-circle">${isSelected ? '●' : '○'}</div>`;
+      }
+
+      // Feedback Tag if revealed
+      let feedbackTagHtml = '';
+      if (isRevealed) {
+        if (isCorrectOption) {
+          feedbackTagHtml = `<span class="opt-feedback-tag correct">✓ Correct Answer</span>`;
+        } else if (isSelected && !isCorrectOption) {
+          feedbackTagHtml = `<span class="opt-feedback-tag wrong">✕ Your Answer</span>`;
+        }
+      }
 
       optBtn.innerHTML = `
         ${iconHtml}
         <div class="quiz-opt-text"><strong>${letter}.</strong> ${escapeHtml(optText)}</div>
+        ${feedbackTagHtml}
       `;
 
-      optBtn.addEventListener('click', () => {
-        if (isMulti) {
-          // Toggle selection in array
-          let list = Array.isArray(state.quiz.userAnswers[currentIdx])
-            ? [...state.quiz.userAnswers[currentIdx]]
-            : [];
-          if (list.includes(letter)) {
-            list = list.filter(l => l !== letter);
+      // Allow option click only if not yet revealed
+      if (!isRevealed) {
+        optBtn.addEventListener('click', () => {
+          if (isMulti) {
+            let list = Array.isArray(state.quiz.userAnswers[currentIdx])
+              ? [...state.quiz.userAnswers[currentIdx]]
+              : [];
+            if (list.includes(letter)) {
+              list = list.filter(l => l !== letter);
+            } else {
+              list.push(letter);
+            }
+            state.quiz.userAnswers[currentIdx] = list;
           } else {
-            list.push(letter);
+            state.quiz.userAnswers[currentIdx] = letter;
           }
-          state.quiz.userAnswers[currentIdx] = list;
-        } else {
-          // Single radio select
-          state.quiz.userAnswers[currentIdx] = letter;
-        }
-        renderActiveQuizQuestion();
-      });
+          renderActiveQuizQuestion();
+        });
+      }
 
       dom.quizOptionsContainer.appendChild(optBtn);
     });
 
-    // Prev / Next button states
+    // If revealed, display instant feedback banner below options
+    if (isRevealed) {
+      const banner = document.createElement('div');
+      banner.className = `instant-feedback-card ${isQuestionCorrect ? 'correct' : 'wrong'}`;
+      if (isQuestionCorrect) {
+        banner.innerHTML = `
+          <div class="feedback-icon">✓</div>
+          <div class="feedback-text">
+            <strong>Correct!</strong> Well done.
+          </div>
+        `;
+      } else {
+        const correctStr = qCorrect.map(l => `Option ${l}`).join(', ');
+        banner.innerHTML = `
+          <div class="feedback-icon">✕</div>
+          <div class="feedback-text">
+            <strong>Incorrect.</strong> The correct answer is <strong>${correctStr}</strong>.
+          </div>
+        `;
+      }
+      dom.quizOptionsContainer.appendChild(banner);
+    }
+
+    // Prev button state
     dom.btnQuizPrev.disabled = currentIdx === 0;
 
-    if (currentIdx === totalQ - 1) {
-      dom.btnQuizNext.innerHTML = `
-        <span>Finish Quiz</span>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-      `;
-    } else {
+    // Next button text & icon
+    if (!isRevealed) {
       dom.btnQuizNext.innerHTML = `
         <span>Next</span>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
       `;
+    } else {
+      if (currentIdx === totalQ - 1) {
+        dom.btnQuizNext.innerHTML = `
+          <span>Finish Quiz</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+        `;
+      } else {
+        dom.btnQuizNext.innerHTML = `
+          <span>Next Question</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+        `;
+      }
     }
 
     renderQuizPagination();
@@ -810,10 +887,32 @@ document.addEventListener('DOMContentLoaded', () => {
         bubble.classList.add('current');
       }
 
-      const ans = state.quiz.userAnswers[i];
-      const isAnswered = Array.isArray(ans) ? ans.length > 0 : Boolean(ans);
-      if (isAnswered) {
-        bubble.classList.add('answered');
+      // Check if revealed and whether correct or wrong
+      if (state.quiz.revealedAnswers && state.quiz.revealedAnswers[i]) {
+        const q = state.quiz.activeQuestions[i];
+        const ans = state.quiz.userAnswers[i];
+        const qCorr = q.correctAnswers || [q.correctAnswer || 'A'];
+        let correct = false;
+        if (q.type === 'multiple') {
+          const uPicks = Array.isArray(ans) ? ans : [];
+          const sU = [...uPicks].sort();
+          const sC = [...qCorr].sort();
+          correct = sU.length === sC.length && sU.every((v, idx) => v === sC[idx]);
+        } else {
+          correct = ans === qCorr[0];
+        }
+
+        if (correct) {
+          bubble.classList.add('correct-bubble');
+        } else {
+          bubble.classList.add('wrong-bubble');
+        }
+      } else {
+        const ans = state.quiz.userAnswers[i];
+        const isAnswered = Array.isArray(ans) ? ans.length > 0 : Boolean(ans);
+        if (isAnswered) {
+          bubble.classList.add('answered');
+        }
       }
 
       bubble.addEventListener('click', () => {
@@ -833,8 +932,30 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   dom.btnQuizNext.addEventListener('click', () => {
+    const currentIdx = state.quiz.currentIndex;
+    const isRevealed = Boolean(state.quiz.revealedAnswers && state.quiz.revealedAnswers[currentIdx]);
+    const currentQ = state.quiz.activeQuestions[currentIdx];
+    const isMulti = currentQ.type === 'multiple';
+    const currentAnswer = state.quiz.userAnswers[currentIdx];
+    const hasAnswer = isMulti
+      ? (Array.isArray(currentAnswer) && currentAnswer.length > 0)
+      : Boolean(currentAnswer);
+
+    // Step 1: If not yet revealed, reveal the answer immediately!
+    if (!isRevealed) {
+      if (!hasAnswer) {
+        showToast('Please select an option first!');
+        return;
+      }
+      if (!state.quiz.revealedAnswers) state.quiz.revealedAnswers = {};
+      state.quiz.revealedAnswers[currentIdx] = true;
+      renderActiveQuizQuestion();
+      return;
+    }
+
+    // Step 2: If already revealed, advance to the next question or finish quiz
     const totalQ = state.quiz.activeQuestions.length;
-    if (state.quiz.currentIndex < totalQ - 1) {
+    if (currentIdx < totalQ - 1) {
       state.quiz.currentIndex++;
       renderActiveQuizQuestion();
     } else {

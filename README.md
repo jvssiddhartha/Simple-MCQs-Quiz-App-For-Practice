@@ -21,14 +21,18 @@ A clean, mobile-first web application designed with a single focused purpose:
   - All questions and original screenshots are stored locally in the browser.
   - Zero login, zero backend, zero external database required.
   - Works offline once loaded and persists across sessions.
-- **Quiz Practice**:
+- **Quiz Practice & Instant Feedback**:
+  - **Instant Answer Reveal**: When you select an answer and click **Next**:
+    - It immediately reveals whether your selection was **Correct** (Green) or **Incorrect** (Red).
+    - If incorrect, it clearly highlights which option was the correct answer.
+    - Shows an instant feedback card below options explaining the result.
+    - The button then turns into **Next Question →** to move forward smoothly.
   - **Quiz Settings**: Choose number of questions (`5`, `10`, `20`, `All`) and question order (`Sequential` or `Random`).
   - **Active Quiz**:
     - One question at a time (`Question 1 / 25`).
     - Touch-friendly option cards (A, B, C, D).
     - Previous and Next buttons.
-    - Interactive bottom navigation (`1 2 3 4 5...`).
-    - Answers are **not** revealed during the quiz.
+    - Interactive bottom navigation (`1 2 3 4 5...`) with green/red status indicators for answered questions.
 - **Final Result & Review**:
   - Score fraction (e.g. `18 / 20`), percentage (`90%`), and counts for `✓ Correct` and `✕ Wrong`.
   - Detailed **Review Answers** list comparing your choices with the correct answers.
