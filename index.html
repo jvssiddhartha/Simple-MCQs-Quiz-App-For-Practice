@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>MCQ Practice - Simple Personal Exam Practice Tool</title>
+  <meta name="description" content="Upload screenshot, extract or add MCQs, save locally, and practice anytime. Simple, clean, and mobile-friendly.">
+  <meta name="theme-color" content="#4f46e5">
+
+  <!-- Google Fonts: Plus Jakarta Sans for crisp modern typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Tesseract.js CDN for in-browser OCR -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+  <!-- App Stylesheet -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div id="app" class="app-container">
+    <!-- Header / Navbar -->
+    <header class="navbar">
+      <div class="nav-content">
+        <a href="#home" class="brand" id="nav-brand-btn">
+          <span class="brand-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+          </span>
+          <span class="brand-text">MCQ Practice</span>
+        </a>
+
+        <nav class="nav-links" id="main-nav">
+          <button class="nav-btn active" data-view="home" id="nav-home">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+            <span>Home</span>
+          </button>
+          <button class="nav-btn" data-view="add" id="nav-add">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            <span>Add Questions</span>
+          </button>
+          <button class="nav-btn" data-view="practice-settings" id="nav-practice">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            <span>Practice</span>
+          </button>
+        </nav>
+
+        <div class="nav-actions">
+          <button class="icon-btn" id="theme-toggle-btn" title="Toggle Theme" aria-label="Toggle dark mode">
+            <svg id="theme-icon-sun" class="theme-icon hidden" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+            <svg id="theme-icon-moon" class="theme-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="main-wrapper">
+
+      <!-- ================= 1. HOME VIEW ================= -->
+      <section id="view-home" class="app-view active">
+        <!-- Hero Card -->
+        <div class="card hero-card">
+          <div class="hero-badge">Personal Exam Practice Tool</div>
+          <h1 class="hero-title">MCQ Practice</h1>
+          <p class="hero-subtitle">Add your questions and practice anytime.</p>
+          
+          <div class="hero-stats">
+            <div class="stat-pill">
+              <span class="stat-label">Total Questions:</span>
+              <span class="stat-value" id="home-total-count">0</span>
+            </div>
+          </div>
+
+          <div class="hero-actions">
+            <button class="btn btn-primary btn-lg" id="home-btn-add">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              <span>+ Add Questions</span>
+            </button>
+            <button class="btn btn-secondary btn-lg" id="home-btn-practice">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              <span>Practice Quiz</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 4. QUESTION LIST -->
+        <div class="questions-section">
+          <div class="section-header">
+            <div class="section-title-wrap">
+              <h2 class="section-title" id="home-list-count-badge">0 Questions Added</h2>
+              <span class="section-sub">Manage and review your saved questions</span>
+            </div>
+            <div class="section-quick-actions" id="questions-header-actions">
+              <button class="btn btn-text btn-sm" id="btn-demo-samples" title="Add 3 sample questions for testing">
+                + Load Samples
+              </button>
+            </div>
+          </div>
+
+          <!-- Question Cards Container -->
+          <div class="question-list-container" id="question-list">
+            <!-- Dynamically populated -->
+          </div>
+
+          <!-- Empty state if 0 questions -->
+          <div class="empty-state hidden" id="questions-empty-state">
+            <div class="empty-icon">📷</div>
+            <h3>No questions added yet</h3>
+            <p>Upload a screenshot or photo to extract and save your first MCQ.</p>
+            <button class="btn btn-primary" id="btn-empty-add">+ Add Questions</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 2 & 3. ADD QUESTIONS VIEW ================= -->
+      <section id="view-add" class="app-view">
+        <div class="page-header">
+          <button class="btn-back" id="btn-back-to-home">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            <span>Back to Home</span>
+          </button>
+          <h2>Add Questions</h2>
+          <p class="page-subtitle">Upload an MCQ screenshot, extract with OCR, edit if needed, and save.</p>
+        </div>
+
+        <!-- Step 1: Upload Screenshot Card -->
+        <div class="card upload-card" id="upload-step-card">
+          <h3 class="card-title">Upload Screenshot</h3>
+          <p class="card-desc">Take/select an image from mobile or drag & drop a screenshot here.</p>
+
+          <div class="dropzone" id="dropzone">
+            <input type="file" id="file-input" accept="image/*" capture="environment" class="file-input-hidden">
+            <div class="dropzone-content" id="dropzone-prompt">
+              <div class="dropzone-icon">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+              </div>
+              <p class="dropzone-main">Tap to upload screenshot / take photo</p>
+              <p class="dropzone-sub">or drag and drop here (or paste from clipboard with Ctrl+V)</p>
+              <button type="button" class="btn btn-outline btn-sm mt-2" id="browse-btn">Browse Image</button>
+            </div>
+
+            <!-- Image Preview Box -->
+            <div class="image-preview-wrapper hidden" id="preview-wrapper">
+              <img id="image-preview" src="" alt="Screenshot preview" class="preview-img">
+              <div class="preview-overlay-actions">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-change-image">Change Image</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Extract Button & OCR Progress -->
+          <div class="extract-controls mt-4">
+            <button class="btn btn-primary btn-block btn-lg" id="btn-extract" disabled>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h20"></path><path d="M20 12l-4-4"></path><path d="M20 12l-4 4"></path><rect x="4" y="4" width="6" height="6"></rect><rect x="14" y="14" width="6" height="6"></rect></svg>
+              <span>Extract Question</span>
+            </button>
+            
+            <!-- Manual Entry Alternative link -->
+            <div class="manual-entry-hint">
+              <span>Or </span><button type="button" class="btn-link" id="btn-skip-to-manual">fill question manually without image</button>
+            </div>
+          </div>
+
+          <!-- OCR Progress Bar -->
+          <div class="ocr-progress-box hidden" id="ocr-progress-box">
+            <div class="ocr-spinner"></div>
+            <div class="ocr-status-text">
+              <span id="ocr-status-label">Reading screenshot with OCR...</span>
+              <span id="ocr-progress-percent">0%</span>
+            </div>
+            <div class="progress-bar-track">
+              <div class="progress-bar-fill" id="ocr-progress-fill" style="width: 0%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Success Toast / Banner After Saving -->
+        <div class="card success-banner hidden" id="save-success-banner">
+          <div class="success-icon">✓</div>
+          <div class="success-content">
+            <h3 class="success-title">Question Added Successfully!</h3>
+            <p class="success-sub">The question has been saved to your local library.</p>
+          </div>
+          <div class="success-actions">
+            <button class="btn btn-primary" id="btn-add-another">+ Add Another Question</button>
+            <button class="btn btn-secondary" id="btn-success-go-practice">Practice Quiz</button>
+          </div>
+        </div>
+
+        <!-- Step 2: Edit Before Saving Form -->
+        <div class="card edit-form-card" id="edit-form-card">
+          <div class="card-header-flex">
+            <div>
+              <h3 class="card-title">Edit Before Saving</h3>
+              <p class="card-desc">Review extracted question and options. Correct anything if OCR made a mistake.</p>
+            </div>
+            <!-- Screenshot Preview Modal Trigger -->
+            <button type="button" class="btn btn-outline btn-sm hidden" id="btn-view-orig-shot">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              <span>View Screenshot</span>
+            </button>
+          </div>
+
+          <form id="add-question-form">
+            <!-- Question Field -->
+            <div class="form-group">
+              <label for="form-question" class="form-label">
+                <span>Question</span>
+                <span class="required">*</span>
+              </label>
+              <textarea id="form-question" class="form-textarea" rows="3" placeholder="e.g. What is the default port of HTTP?" required></textarea>
+            </div>
+
+            <!-- Options A, B, C, D -->
+            <div class="form-group">
+              <label class="form-label">Options</label>
+              
+              <div class="option-input-row">
+                <span class="option-tag">A</span>
+                <input type="text" id="form-option-a" class="form-input" placeholder="e.g. 21" required>
+              </div>
+
+              <div class="option-input-row">
+                <span class="option-tag">B</span>
+                <input type="text" id="form-option-b" class="form-input" placeholder="e.g. 80" required>
+              </div>
+
+              <div class="option-input-row">
+                <span class="option-tag">C</span>
+                <input type="text" id="form-option-c" class="form-input" placeholder="e.g. 443" required>
+              </div>
+
+              <div class="option-input-row">
+                <span class="option-tag">D</span>
+                <input type="text" id="form-option-d" class="form-input" placeholder="e.g. 25" required>
+              </div>
+            </div>
+
+            <!-- Correct Answer Dropdown -->
+            <div class="form-group">
+              <label for="form-correct-answer" class="form-label">
+                <span>Correct Answer</span>
+                <span class="required">*</span>
+              </label>
+              <div class="select-wrapper">
+                <select id="form-correct-answer" class="form-select" required>
+                  <option value="" disabled selected>Select Correct Answer ▼</option>
+                  <option value="A">Option A</option>
+                  <option value="B">Option B</option>
+                  <option value="C">Option C</option>
+                  <option value="D">Option D</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Form Actions -->
+            <div class="form-actions mt-4">
+              <button type="submit" class="btn btn-primary btn-lg btn-block" id="btn-save-question">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                <span>Save Question</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- ================= 6. QUIZ SETTINGS VIEW ================= -->
+      <section id="view-practice-settings" class="app-view">
+        <div class="page-header">
+          <button class="btn-back" id="btn-settings-back-to-home">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            <span>Home</span>
+          </button>
+          <h2>Quiz Settings</h2>
+          <p class="page-subtitle">Configure your practice session.</p>
+        </div>
+
+        <div class="card settings-card">
+          <!-- Number of Questions -->
+          <div class="settings-group">
+            <label class="settings-label">Number of Questions</label>
+            <div class="pill-group" id="settings-count-group">
+              <button type="button" class="pill-choice" data-count="5">5</button>
+              <button type="button" class="pill-choice" data-count="10">10</button>
+              <button type="button" class="pill-choice" data-count="20">20</button>
+              <button type="button" class="pill-choice active" data-count="all">All (<span id="settings-all-count">0</span>)</button>
+            </div>
+          </div>
+
+          <!-- Question Order -->
+          <div class="settings-group">
+            <label class="settings-label">Question Order</label>
+            <div class="order-radio-group">
+              <label class="radio-card">
+                <input type="radio" name="quiz-order" value="sequential" checked>
+                <div class="radio-card-content">
+                  <span class="radio-title">Sequential</span>
+                  <span class="radio-desc">In the order they were added</span>
+                </div>
+              </label>
+
+              <label class="radio-card">
+                <input type="radio" name="quiz-order" value="random">
+                <div class="radio-card-content">
+                  <span class="radio-title">Random</span>
+                  <span class="radio-desc">Shuffle questions randomly</span>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Start Practice Button -->
+          <div class="settings-action mt-4">
+            <button class="btn btn-primary btn-lg btn-block" id="btn-start-practice">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              <span>Start Practice</span>
+            </button>
+            <p class="settings-warning hidden" id="settings-no-questions-warn">You need at least 1 question to start practice. Add questions first!</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 5 & 7. ACTIVE PRACTICE VIEW ================= -->
+      <section id="view-practice-active" class="app-view">
+        <div class="quiz-top-bar">
+          <div class="quiz-progress-info">
+            <span class="quiz-counter" id="quiz-question-counter">Question 1 / 25</span>
+            <span class="quiz-answered-count" id="quiz-answered-status">0 answered</span>
+          </div>
+          <button class="btn btn-text btn-sm" id="btn-exit-quiz" title="Exit to Home">
+            Exit Quiz
+          </button>
+        </div>
+
+        <div class="progress-bar-track mb-3">
+          <div class="progress-bar-fill" id="quiz-progress-bar" style="width: 4%"></div>
+        </div>
+
+        <!-- Question Display Card -->
+        <div class="card quiz-card" id="quiz-question-card">
+          <!-- Attached screenshot button if exists -->
+          <div class="quiz-shot-badge hidden" id="quiz-shot-container">
+            <button type="button" class="btn btn-outline btn-xs" id="quiz-view-shot-btn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+              <span>View Screenshot</span>
+            </button>
+          </div>
+
+          <h3 class="quiz-question-text" id="quiz-question-text">Question goes here?</h3>
+
+          <!-- Options List (Touch-friendly cards) -->
+          <div class="quiz-options-list" id="quiz-options-container">
+            <!-- Dynamically populated options A, B, C, D -->
+          </div>
+        </div>
+
+        <!-- Prev / Next Controls -->
+        <div class="quiz-nav-actions">
+          <button class="btn btn-secondary btn-nav" id="btn-quiz-prev" disabled>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            <span>Previous</span>
+          </button>
+          <button class="btn btn-primary btn-nav" id="btn-quiz-next">
+            <span>Next</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+          </button>
+        </div>
+
+        <!-- Bottom Question Navigation (1 2 3 4 5...) -->
+        <div class="card quiz-pagination-card">
+          <div class="quiz-pagination-header">
+            <span>Jump to question:</span>
+          </div>
+          <div class="quiz-pagination-grid" id="quiz-pagination-grid">
+            <!-- Populated with 1 2 3 ... -->
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 8 & 9. FINAL RESULT & REVIEW VIEW ================= -->
+      <section id="view-practice-result" class="app-view">
+        <div class="card result-card">
+          <div class="result-badge-icon">🏆</div>
+          <h1 class="result-title">Quiz Complete</h1>
+
+          <div class="result-score-highlight">
+            <div class="result-score-fraction">
+              Score: <span id="result-score-numerator">18</span> / <span id="result-score-denominator">20</span>
+            </div>
+            <div class="result-percentage" id="result-score-percent">90%</div>
+          </div>
+
+          <div class="result-breakdown">
+            <div class="result-stat-pill pill-correct">
+              <span class="pill-icon">✓</span>
+              <span>Correct:</span>
+              <strong id="result-correct-count">18</strong>
+            </div>
+            <div class="result-stat-pill pill-wrong">
+              <span class="pill-icon">✕</span>
+              <span>Wrong:</span>
+              <strong id="result-wrong-count">2</strong>
+            </div>
+            <div class="result-stat-pill pill-skipped" id="pill-skipped-wrap">
+              <span class="pill-icon">○</span>
+              <span>Skipped:</span>
+              <strong id="result-skipped-count">0</strong>
+            </div>
+          </div>
+
+          <div class="result-actions">
+            <button class="btn btn-primary btn-lg" id="btn-practice-again">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+              <span>Practice Again</span>
+            </button>
+            <button class="btn btn-secondary btn-lg" id="btn-result-home">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+              <span>Back to Home</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Review Answers Section -->
+        <div class="review-section">
+          <div class="review-header">
+            <h3>Review Answers</h3>
+            <p class="review-sub">Compare your answers with the correct solutions.</p>
+          </div>
+
+          <div class="review-list" id="review-questions-list">
+            <!-- Populated dynamically with full answer review cards -->
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Bottom Navigation Bar for Mobile -->
+    <nav class="mobile-bottom-nav">
+      <button class="mobile-nav-btn active" data-view="home" id="mob-nav-home">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+        <span>Home</span>
+      </button>
+      <button class="mobile-nav-btn" data-view="add" id="mob-nav-add">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        <span>Add</span>
+      </button>
+      <button class="mobile-nav-btn" data-view="practice-settings" id="mob-nav-practice">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+        <span>Practice</span>
+      </button>
+    </nav>
+
+    <!-- Screenshot Viewer Modal -->
+    <div class="modal-backdrop hidden" id="screenshot-modal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h4>Original Screenshot</h4>
+          <button class="icon-btn-close" id="btn-close-shot-modal" aria-label="Close modal">×</button>
+        </div>
+        <div class="modal-body">
+          <img id="modal-screenshot-img" src="" alt="Screenshot" class="modal-img">
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit Question Modal (for editing from the Question List) -->
+    <div class="modal-backdrop hidden" id="edit-question-modal">
+      <div class="modal-card modal-lg">
+        <div class="modal-header">
+          <h4>Edit Question</h4>
+          <button class="icon-btn-close" id="btn-close-edit-modal" aria-label="Close modal">×</button>
+        </div>
+        <div class="modal-body">
+          <form id="modal-edit-form">
+            <input type="hidden" id="modal-edit-id">
+            
+            <div class="form-group">
+              <label for="modal-edit-question" class="form-label">Question</label>
+              <textarea id="modal-edit-question" class="form-textarea" rows="3" required></textarea>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Options</label>
+              <div class="option-input-row">
+                <span class="option-tag">A</span>
+                <input type="text" id="modal-edit-opt-a" class="form-input" required>
+              </div>
+              <div class="option-input-row">
+                <span class="option-tag">B</span>
+                <input type="text" id="modal-edit-opt-b" class="form-input" required>
+              </div>
+              <div class="option-input-row">
+                <span class="option-tag">C</span>
+                <input type="text" id="modal-edit-opt-c" class="form-input" required>
+              </div>
+              <div class="option-input-row">
+                <span class="option-tag">D</span>
+                <input type="text" id="modal-edit-opt-d" class="form-input" required>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="modal-edit-correct" class="form-label">Correct Answer</label>
+              <select id="modal-edit-correct" class="form-select" required>
+                <option value="A">Option A</option>
+                <option value="B">Option B</option>
+                <option value="C">Option C</option>
+                <option value="D">Option D</option>
+              </select>
+            </div>
+
+            <!-- Screenshot attached in edit modal -->
+            <div class="modal-shot-preview-area hidden" id="modal-shot-preview-area">
+              <label class="form-label">Attached Screenshot</label>
+              <img id="modal-edit-shot-preview" src="" alt="Screenshot" class="modal-thumbnail">
+            </div>
+
+            <div class="form-actions mt-4">
+              <button type="submit" class="btn btn-primary btn-block">Save Changes</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Confirm Delete Modal -->
+    <div class="modal-backdrop hidden" id="delete-modal">
+      <div class="modal-card modal-sm">
+        <div class="modal-header">
+          <h4>Delete Question</h4>
+          <button class="icon-btn-close" id="btn-close-delete-modal">×</button>
+        </div>
+        <div class="modal-body">
+          <p>Are you sure you want to delete this question? This cannot be undone.</p>
+          <div class="modal-actions mt-4">
+            <button class="btn btn-secondary" id="btn-cancel-delete">Cancel</button>
+            <button class="btn btn-danger" id="btn-confirm-delete">Delete</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast hidden"></div>
+
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/db.js"></script>
+  <script src="js/ocr.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,264 @@
+/**
+ * db.js - IndexedDB Local Storage Manager for MCQ Practice
+ * Stores questions and original screenshots locally in the browser without any backend.
+ */
+
+const DB_NAME = 'MCQPracticeDB';
+const DB_VERSION = 1;
+const STORE_NAME = 'questions';
+
+class MCQDatabase {
+  constructor() {
+    this.db = null;
+    this.initPromise = this._init();
+  }
+
+  _init() {
+    return new Promise((resolve, reject) => {
+      // IndexedDB support check
+      if (!window.indexedDB) {
+        console.warn('IndexedDB not supported, falling back to localStorage');
+        resolve(null);
+        return;
+      }
+
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+      request.onupgradeneeded = (event) => {
+        const db = event.target.result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          const store = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+          store.createIndex('createdAt', 'createdAt', { unique: false });
+        }
+      };
+
+      request.onsuccess = (event) => {
+        this.db = event.target.result;
+        resolve(this.db);
+      };
+
+      request.onerror = (event) => {
+        console.error('IndexedDB open error:', event.target.error);
+        resolve(null); // Will fallback to localStorage
+      };
+    });
+  }
+
+  async _getStore(mode = 'readonly') {
+    await this.initPromise;
+    if (this.db) {
+      const transaction = this.db.transaction(STORE_NAME, mode);
+      return transaction.objectStore(STORE_NAME);
+    }
+    return null;
+  }
+
+  // --- CRUD Operations ---
+
+  async getAllQuestions() {
+    const store = await this._getStore('readonly');
+    if (!store) {
+      return this._lsGetAll();
+    }
+
+    return new Promise((resolve, reject) => {
+      const request = store.getAll();
+      request.onsuccess = () => {
+        // Sort descending by creation date (newest first)
+        const items = request.result || [];
+        items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        resolve(items);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async getQuestion(id) {
+    const numId = Number(id);
+    const store = await this._getStore('readonly');
+    if (!store) {
+      return this._lsGet(numId);
+    }
+
+    return new Promise((resolve, reject) => {
+      const request = store.get(numId);
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async addQuestion(questionData) {
+    const item = {
+      question: questionData.question.trim(),
+      options: {
+        A: (questionData.options?.A || '').trim(),
+        B: (questionData.options?.B || '').trim(),
+        C: (questionData.options?.C || '').trim(),
+        D: (questionData.options?.D || '').trim()
+      },
+      correctAnswer: questionData.correctAnswer || 'A',
+      screenshot: questionData.screenshot || null,
+      createdAt: Date.now()
+    };
+
+    const store = await this._getStore('readwrite');
+    if (!store) {
+      return this._lsAdd(item);
+    }
+
+    return new Promise((resolve, reject) => {
+      const request = store.add(item);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async updateQuestion(questionData) {
+    const store = await this._getStore('readwrite');
+    if (!store) {
+      return this._lsUpdate(questionData);
+    }
+
+    return new Promise((resolve, reject) => {
+      const getRequest = store.get(Number(questionData.id));
+      getRequest.onsuccess = () => {
+        const existing = getRequest.result;
+        if (!existing) {
+          reject(new Error('Question not found'));
+          return;
+        }
+
+        const updated = {
+          ...existing,
+          question: questionData.question.trim(),
+          options: {
+            A: (questionData.options?.A || '').trim(),
+            B: (questionData.options?.B || '').trim(),
+            C: (questionData.options?.C || '').trim(),
+            D: (questionData.options?.D || '').trim()
+          },
+          correctAnswer: questionData.correctAnswer || existing.correctAnswer,
+          screenshot: questionData.screenshot !== undefined ? questionData.screenshot : existing.screenshot,
+          updatedAt: Date.now()
+        };
+
+        const putRequest = store.put(updated);
+        putRequest.onsuccess = () => resolve(updated);
+        putRequest.onerror = () => reject(putRequest.error);
+      };
+      getRequest.onerror = () => reject(getRequest.error);
+    });
+  }
+
+  async deleteQuestion(id) {
+    const numId = Number(id);
+    const store = await this._getStore('readwrite');
+    if (!store) {
+      return this._lsDelete(numId);
+    }
+
+    return new Promise((resolve, reject) => {
+      const request = store.delete(numId);
+      request.onsuccess = () => resolve(true);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async countQuestions() {
+    const store = await this._getStore('readonly');
+    if (!store) {
+      return this._lsGetAll().length;
+    }
+
+    return new Promise((resolve, reject) => {
+      const request = store.count();
+      request.onsuccess = () => resolve(request.result || 0);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  // --- LocalStorage Fallback Methods ---
+
+  _lsGetAll() {
+    try {
+      const raw = localStorage.getItem('mcq_questions');
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  _lsGet(id) {
+    const list = this._lsGetAll();
+    return list.find(q => q.id === id) || null;
+  }
+
+  _lsAdd(item) {
+    const list = this._lsGetAll();
+    const newId = Date.now();
+    item.id = newId;
+    list.unshift(item);
+    localStorage.setItem('mcq_questions', JSON.stringify(list));
+    return newId;
+  }
+
+  _lsUpdate(item) {
+    const list = this._lsGetAll();
+    const idx = list.findIndex(q => q.id === Number(item.id));
+    if (idx !== -1) {
+      list[idx] = { ...list[idx], ...item };
+      localStorage.setItem('mcq_questions', JSON.stringify(list));
+      return list[idx];
+    }
+    return null;
+  }
+
+  _lsDelete(id) {
+    const list = this._lsGetAll().filter(q => q.id !== Number(id));
+    localStorage.setItem('mcq_questions', JSON.stringify(list));
+    return true;
+  }
+
+  // --- Sample Questions Loader ---
+  async seedSampleQuestions() {
+    const samples = [
+      {
+        question: "What is the default port of HTTP?",
+        options: {
+          A: "21",
+          B: "80",
+          C: "443",
+          D: "25"
+        },
+        correctAnswer: "B"
+      },
+      {
+        question: "Which protocol is connection-oriented?",
+        options: {
+          A: "UDP",
+          B: "IP",
+          C: "TCP",
+          D: "ICMP"
+        },
+        correctAnswer: "C"
+      },
+      {
+        question: "What is the function of DNS?",
+        options: {
+          A: "Translate domain names to IP addresses",
+          B: "Encrypt data in transit",
+          C: "Manage routing tables",
+          D: "Assign dynamic IP addresses to clients"
+        },
+        correctAnswer: "A"
+      }
+    ];
+
+    for (const sample of samples) {
+      await this.addQuestion(sample);
+    }
+  }
+}
+
+// Global instance
+window.mcqDB = new MCQDatabase();
