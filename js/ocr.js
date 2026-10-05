@@ -117,7 +117,7 @@ const MCQ_OCR = {
    */
   parseMCQText(text) {
     if (!text || typeof text !== 'string') {
-      return { question: '', options: { A: '', B: '', C: '', D: '' }, detectedAnswer: '' };
+      return { question: '', options: { A: '', B: '', C: '', D: '' }, detectedAnswer: '', detectedAnswers: [], detectedType: 'single' };
     }
 
     // Clean whitespace and normalize line breaks
@@ -128,12 +128,16 @@ const MCQ_OCR = {
     const options = { A: '', B: '', C: '', D: '' };
     let currentOptionKey = null;
     let detectedAnswer = '';
+    let detectedAnswers = [];
+    let detectedType = 'single';
 
     // Regex to match Option markers:
     // Matches "A.", "A)", "(A)", "[A]", "A -", "A:", "1.", "(1)", etc.
     const optionRegex = /^(\(?\s*([A-Da-d1-4])\s*[\.\)\:\-\]]\s*)(.*)$/;
     
-    // Regex to detect answer keywords: e.g. "Ans: B", "Answer: (C)", "Key: D"
+    // Regex to detect multiple answers keyword: e.g. "Ans: A, B" or "Answer: A and C"
+    const ansKeyMultiRegex = /(?:Ans|Answer|Correct\s*Options?|Key)[\s\:\-\.]*([A-Da-d](?:[\s,\&and\-\/]+[A-Da-d])+)/i;
+    // Single answer keyword: e.g. "Ans: B", "Answer: (C)", "Key: D"
     const ansKeyRegex = /(?:Ans|Answer|Correct\s*Option|Key)[\s\:\-\.]*([A-Da-d])/i;
 
     const optMap = {
@@ -145,10 +149,22 @@ const MCQ_OCR = {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
 
-      // Check if line contains answer key declaration
+      // Check if line contains multiple answers declaration
+      const multiMatch = line.match(ansKeyMultiRegex);
+      if (multiMatch && multiMatch[1]) {
+        const found = multiMatch[1].toUpperCase().match(/[A-D]/g);
+        if (found && found.length > 1) {
+          detectedAnswers = Array.from(new Set(found));
+          detectedType = 'multiple';
+          continue;
+        }
+      }
+
+      // Check if line contains single answer key declaration
       const ansMatch = line.match(ansKeyRegex);
-      if (ansMatch && ansMatch[1]) {
+      if (ansMatch && ansMatch[1] && detectedAnswers.length === 0) {
         detectedAnswer = ansMatch[1].toUpperCase();
+        detectedAnswers = [detectedAnswer];
         continue;
       }
 
@@ -204,10 +220,20 @@ const MCQ_OCR = {
       }
     }
 
+    // Detect multiple answers phrase in question text
+    if (detectedType === 'single') {
+      const multiPhraseRegex = /(?:select all|choose all|choose (?:two|three|multiple)|which of the following are|check all)/i;
+      if (multiPhraseRegex.test(question)) {
+        detectedType = 'multiple';
+      }
+    }
+
     return {
       question: question || cleanText,
       options,
-      detectedAnswer
+      detectedAnswer,
+      detectedAnswers,
+      detectedType
     };
   }
 };

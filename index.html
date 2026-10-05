@@ -237,14 +237,32 @@
               </div>
             </div>
 
-            <!-- Correct Answer Dropdown -->
+            <!-- Question Type Selector -->
             <div class="form-group">
+              <label class="form-label">
+                <span>Question Type</span>
+                <span class="required">*</span>
+              </label>
+              <div class="type-pill-group" id="add-type-group">
+                <button type="button" class="type-pill active" data-type="single" id="type-pill-single">
+                  <span class="type-indicator-circle">●</span>
+                  <span>Single Answer (Radio)</span>
+                </button>
+                <button type="button" class="type-pill" data-type="multiple" id="type-pill-multi">
+                  <span class="type-indicator-square">■</span>
+                  <span>Multiple Answers (Checkbox)</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Correct Answer Selection (Single: Dropdown) -->
+            <div class="form-group" id="add-single-answer-group">
               <label for="form-correct-answer" class="form-label">
                 <span>Correct Answer</span>
                 <span class="required">*</span>
               </label>
               <div class="select-wrapper">
-                <select id="form-correct-answer" class="form-select" required>
+                <select id="form-correct-answer" class="form-select">
                   <option value="" disabled selected>Select Correct Answer ▼</option>
                   <option value="A">Option A</option>
                   <option value="B">Option B</option>
@@ -252,6 +270,37 @@
                   <option value="D">Option D</option>
                 </select>
               </div>
+            </div>
+
+            <!-- Correct Answer Selection (Multiple: Checkboxes) -->
+            <div class="form-group hidden" id="add-multi-answer-group">
+              <label class="form-label">
+                <span>Select All Correct Answers</span>
+                <span class="required">*</span>
+              </label>
+              <div class="multi-select-grid">
+                <label class="multi-checkbox-pill">
+                  <input type="checkbox" name="add-correct-multi" value="A">
+                  <span class="checkbox-box"></span>
+                  <span class="checkbox-text">Option A</span>
+                </label>
+                <label class="multi-checkbox-pill">
+                  <input type="checkbox" name="add-correct-multi" value="B">
+                  <span class="checkbox-box"></span>
+                  <span class="checkbox-text">Option B</span>
+                </label>
+                <label class="multi-checkbox-pill">
+                  <input type="checkbox" name="add-correct-multi" value="C">
+                  <span class="checkbox-box"></span>
+                  <span class="checkbox-text">Option C</span>
+                </label>
+                <label class="multi-checkbox-pill">
+                  <input type="checkbox" name="add-correct-multi" value="D">
+                  <span class="checkbox-box"></span>
+                  <span class="checkbox-text">Option D</span>
+                </label>
+              </div>
+              <p class="field-hint">Check all options that are correct answers (at least 1)</p>
             </div>
 
             <!-- Form Actions -->
@@ -339,12 +388,14 @@
 
         <!-- Question Display Card -->
         <div class="card quiz-card" id="quiz-question-card">
-          <!-- Attached screenshot button if exists -->
-          <div class="quiz-shot-badge hidden" id="quiz-shot-container">
-            <button type="button" class="btn btn-outline btn-xs" id="quiz-view-shot-btn">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-              <span>View Screenshot</span>
-            </button>
+          <div class="quiz-card-meta">
+            <span class="quiz-type-badge" id="quiz-type-badge">Single Choice</span>
+            <div class="quiz-shot-badge hidden" id="quiz-shot-container">
+              <button type="button" class="btn btn-outline btn-xs" id="quiz-view-shot-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                <span>View Screenshot</span>
+              </button>
+            </div>
           </div>
 
           <h3 class="quiz-question-text" id="quiz-question-text">Question goes here?</h3>
@@ -501,14 +552,58 @@
               </div>
             </div>
 
+            <!-- Question Type in Edit Modal -->
             <div class="form-group">
+              <label class="form-label">Question Type</label>
+              <div class="type-pill-group" id="modal-type-group">
+                <button type="button" class="type-pill active" data-type="single" id="modal-type-single">
+                  <span class="type-indicator-circle">●</span>
+                  <span>Single Answer (Radio)</span>
+                </button>
+                <button type="button" class="type-pill" data-type="multiple" id="modal-type-multi">
+                  <span class="type-indicator-square">■</span>
+                  <span>Multiple Answers (Checkbox)</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Single Answer Selection in Edit Modal -->
+            <div class="form-group" id="modal-single-answer-group">
               <label for="modal-edit-correct" class="form-label">Correct Answer</label>
-              <select id="modal-edit-correct" class="form-select" required>
+              <select id="modal-edit-correct" class="form-select">
                 <option value="A">Option A</option>
                 <option value="B">Option B</option>
                 <option value="C">Option C</option>
                 <option value="D">Option D</option>
               </select>
+            </div>
+
+            <!-- Multiple Answer Selection in Edit Modal -->
+            <div class="form-group hidden" id="modal-multi-answer-group">
+              <label class="form-label">Select All Correct Answers</label>
+              <div class="multi-select-grid">
+                <label class="multi-checkbox-pill">
+                  <input type="checkbox" name="modal-correct-multi" value="A">
+                  <span class="checkbox-box"></span>
+                  <span class="checkbox-text">Option A</span>
+                </label>
+                <label class="multi-checkbox-pill">
+                  <input type="checkbox" name="modal-correct-multi" value="B">
+                  <span class="checkbox-box"></span>
+                  <span class="checkbox-text">Option B</span>
+                </label>
+                <label class="multi-checkbox-pill">
+                  <input type="checkbox" name="modal-correct-multi" value="C">
+                  <span class="checkbox-box"></span>
+                  <span class="checkbox-text">Option C</span>
+                </label>
+                <label class="multi-checkbox-pill">
+                  <input type="checkbox" name="modal-correct-multi" value="D">
+                  <span class="checkbox-box"></span>
+                  <span class="checkbox-text">Option D</span>
+                </label>
+              </div>
+              <p class="field-hint">Check all options that are correct answers</p>
             </div>
 
             <!-- Screenshot attached in edit modal -->

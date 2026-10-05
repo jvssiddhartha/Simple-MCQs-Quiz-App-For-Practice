@@ -1,5 +1,6 @@
 /**
  * app.js - Main Application Controller for MCQ Practice
+ * Supports Single Answer (Radio) and Multiple Answers (Checkbox) questions.
  * Coordinates UI views, OCR interaction, IndexedDB storage, and Quiz Engine.
  */
 
@@ -9,7 +10,8 @@ document.addEventListener('DOMContentLoaded', () => {
     currentView: 'home',
     questions: [],
     
-    // Upload & Add Question State
+    // Add Question State
+    addType: 'single', // 'single' | 'multiple'
     currentImageSource: null,
     currentImageDataUrl: null,
     
@@ -17,13 +19,14 @@ document.addEventListener('DOMContentLoaded', () => {
     quiz: {
       activeQuestions: [],
       currentIndex: 0,
-      userAnswers: {}, // index -> 'A' | 'B' | 'C' | 'D'
+      userAnswers: {}, // index -> string ('B') for single, array (['A', 'C']) for multiple
       order: 'sequential',
       countSetting: 'all',
       isCompleted: false
     },
 
     // Modal state
+    modalEditType: 'single',
     pendingDeleteId: null
   };
 
@@ -80,7 +83,13 @@ document.addEventListener('DOMContentLoaded', () => {
     formOptB: document.getElementById('form-option-b'),
     formOptC: document.getElementById('form-option-c'),
     formOptD: document.getElementById('form-option-d'),
+    
+    // Add Question Type & Answer Elements
+    addTypePills: document.querySelectorAll('#add-type-group .type-pill'),
+    addSingleAnswerGroup: document.getElementById('add-single-answer-group'),
+    addMultiAnswerGroup: document.getElementById('add-multi-answer-group'),
     formCorrectAnswer: document.getElementById('form-correct-answer'),
+    addMultiCheckboxes: document.querySelectorAll('input[name="add-correct-multi"]'),
 
     // Practice Settings View
     btnSettingsBack: document.getElementById('btn-settings-back-to-home'),
@@ -95,6 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
     quizCounter: document.getElementById('quiz-question-counter'),
     quizAnsweredStatus: document.getElementById('quiz-answered-status'),
     quizProgressBar: document.getElementById('quiz-progress-bar'),
+    quizTypeBadge: document.getElementById('quiz-type-badge'),
     quizShotContainer: document.getElementById('quiz-shot-container'),
     quizViewShotBtn: document.getElementById('quiz-view-shot-btn'),
     quizQuestionText: document.getElementById('quiz-question-text'),
@@ -115,11 +125,12 @@ document.addEventListener('DOMContentLoaded', () => {
     btnResultHome: document.getElementById('btn-result-home'),
     reviewQuestionsList: document.getElementById('review-questions-list'),
 
-    // Modals
+    // Modals: Screenshot
     screenshotModal: document.getElementById('screenshot-modal'),
     modalScreenshotImg: document.getElementById('modal-screenshot-img'),
     btnCloseShotModal: document.getElementById('btn-close-shot-modal'),
 
+    // Modals: Edit Question
     editModal: document.getElementById('edit-question-modal'),
     btnCloseEditModal: document.getElementById('btn-close-edit-modal'),
     modalEditForm: document.getElementById('modal-edit-form'),
@@ -129,10 +140,15 @@ document.addEventListener('DOMContentLoaded', () => {
     modalEditOptB: document.getElementById('modal-edit-opt-b'),
     modalEditOptC: document.getElementById('modal-edit-opt-c'),
     modalEditOptD: document.getElementById('modal-edit-opt-d'),
+    modalTypePills: document.querySelectorAll('#modal-type-group .type-pill'),
+    modalSingleAnswerGroup: document.getElementById('modal-single-answer-group'),
+    modalMultiAnswerGroup: document.getElementById('modal-multi-answer-group'),
     modalEditCorrect: document.getElementById('modal-edit-correct'),
+    modalMultiCheckboxes: document.querySelectorAll('input[name="modal-correct-multi"]'),
     modalShotPreviewArea: document.getElementById('modal-shot-preview-area'),
     modalEditShotPreview: document.getElementById('modal-edit-shot-preview'),
 
+    // Modals: Delete
     deleteModal: document.getElementById('delete-modal'),
     btnCloseDeleteModal: document.getElementById('btn-close-delete-modal'),
     btnCancelDelete: document.getElementById('btn-cancel-delete'),
@@ -177,6 +193,49 @@ document.addEventListener('DOMContentLoaded', () => {
     applyTheme(current === 'dark' ? 'light' : 'dark');
   });
 
+  // ================= Question Type Switching =================
+  function setAddQuestionType(type) {
+    state.addType = type;
+    dom.addTypePills.forEach(pill => {
+      pill.classList.toggle('active', pill.getAttribute('data-type') === type);
+    });
+
+    if (type === 'multiple') {
+      dom.addSingleAnswerGroup.classList.add('hidden');
+      dom.addMultiAnswerGroup.classList.remove('hidden');
+    } else {
+      dom.addSingleAnswerGroup.classList.remove('hidden');
+      dom.addMultiAnswerGroup.classList.add('hidden');
+    }
+  }
+
+  dom.addTypePills.forEach(pill => {
+    pill.addEventListener('click', () => {
+      setAddQuestionType(pill.getAttribute('data-type'));
+    });
+  });
+
+  function setModalEditQuestionType(type) {
+    state.modalEditType = type;
+    dom.modalTypePills.forEach(pill => {
+      pill.classList.toggle('active', pill.getAttribute('data-type') === type);
+    });
+
+    if (type === 'multiple') {
+      dom.modalSingleAnswerGroup.classList.add('hidden');
+      dom.modalMultiAnswerGroup.classList.remove('hidden');
+    } else {
+      dom.modalSingleAnswerGroup.classList.remove('hidden');
+      dom.modalMultiAnswerGroup.classList.add('hidden');
+    }
+  }
+
+  dom.modalTypePills.forEach(pill => {
+    pill.addEventListener('click', () => {
+      setModalEditQuestionType(pill.getAttribute('data-type'));
+    });
+  });
+
   // ================= View Navigation =================
   function switchView(viewName) {
     // Hide all views
@@ -207,7 +266,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Bind top navbar & bottom bar buttons
   dom.navBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       const view = btn.getAttribute('data-view');
@@ -271,11 +329,18 @@ document.addEventListener('DOMContentLoaded', () => {
       const card = document.createElement('div');
       card.className = 'question-card-item';
       
-      const qNum = state.questions.length - index; // Display 1-based number
+      const qNum = state.questions.length - index;
+      const isMulti = q.type === 'multiple';
+      const correctList = q.correctAnswers || [q.correctAnswer || 'A'];
       
       card.innerHTML = `
         <div class="item-header">
-          <span class="item-index">Question ${qNum}</span>
+          <div>
+            <span class="item-index">Question ${qNum}</span>
+            <span class="item-type-tag ${isMulti ? 'multi' : ''}">
+              ${isMulti ? '☑ Multiple Choice' : '○ Single Choice'}
+            </span>
+          </div>
           <div class="item-actions">
             <button class="item-action-btn item-btn-edit" data-id="${q.id}">Edit</button>
             <span style="color: var(--border-color)">|</span>
@@ -286,17 +351,21 @@ document.addEventListener('DOMContentLoaded', () => {
         <p class="item-question-text">${escapeHtml(q.question)}</p>
 
         <div class="item-options-preview">
-          <div class="item-option-row ${q.correctAnswer === 'A' ? 'is-correct' : ''}">
-            <span class="item-opt-letter">A.</span> <span>${escapeHtml(q.options?.A || '')}</span>
+          <div class="item-option-row ${correctList.includes('A') ? 'is-correct' : ''}">
+            <span class="item-opt-letter">${isMulti ? (correctList.includes('A') ? '☑' : '☐') : 'A.'}</span>
+            <span>${escapeHtml(q.options?.A || '')}</span>
           </div>
-          <div class="item-option-row ${q.correctAnswer === 'B' ? 'is-correct' : ''}">
-            <span class="item-opt-letter">B.</span> <span>${escapeHtml(q.options?.B || '')}</span>
+          <div class="item-option-row ${correctList.includes('B') ? 'is-correct' : ''}">
+            <span class="item-opt-letter">${isMulti ? (correctList.includes('B') ? '☑' : '☐') : 'B.'}</span>
+            <span>${escapeHtml(q.options?.B || '')}</span>
           </div>
-          <div class="item-option-row ${q.correctAnswer === 'C' ? 'is-correct' : ''}">
-            <span class="item-opt-letter">C.</span> <span>${escapeHtml(q.options?.C || '')}</span>
+          <div class="item-option-row ${correctList.includes('C') ? 'is-correct' : ''}">
+            <span class="item-opt-letter">${isMulti ? (correctList.includes('C') ? '☑' : '☐') : 'C.'}</span>
+            <span>${escapeHtml(q.options?.C || '')}</span>
           </div>
-          <div class="item-option-row ${q.correctAnswer === 'D' ? 'is-correct' : ''}">
-            <span class="item-opt-letter">D.</span> <span>${escapeHtml(q.options?.D || '')}</span>
+          <div class="item-option-row ${correctList.includes('D') ? 'is-correct' : ''}">
+            <span class="item-opt-letter">${isMulti ? (correctList.includes('D') ? '☑' : '☐') : 'D.'}</span>
+            <span>${escapeHtml(q.options?.D || '')}</span>
           </div>
         </div>
 
@@ -310,7 +379,6 @@ document.addEventListener('DOMContentLoaded', () => {
         ` : ''}
       `;
 
-      // Event listeners for Edit, Delete, View Screenshot
       card.querySelector('.item-btn-edit').addEventListener('click', () => openEditModal(q.id));
       card.querySelector('.item-btn-delete').addEventListener('click', () => promptDeleteQuestion(q.id));
 
@@ -326,12 +394,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // Load Sample Demo Questions
   dom.btnDemoSamples.addEventListener('click', async () => {
     await window.mcqDB.seedSampleQuestions();
-    showToast('Loaded 3 sample questions!');
+    showToast('Loaded sample questions!');
     await loadAndRenderQuestions();
   });
 
   // ================= Add Question / Upload / OCR =================
-  // Browse Trigger
   dom.browseBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     dom.fileInput.click();
@@ -343,7 +410,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Drag and Drop
   dom.dropzone.addEventListener('dragover', (e) => {
     e.preventDefault();
     dom.dropzone.classList.add('dragover');
@@ -361,14 +427,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // File Input Changed
   dom.fileInput.addEventListener('change', (e) => {
     if (e.target.files && e.target.files[0]) {
       handleFileSelected(e.target.files[0]);
     }
   });
 
-  // Clipboard Paste Support (Ctrl+V) anywhere on Add screen
+  // Clipboard Paste Support (Ctrl+V)
   window.addEventListener('paste', (e) => {
     if (state.currentView !== 'add') return;
     const items = e.clipboardData?.items;
@@ -431,7 +496,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Skip directly to manual entry
   dom.btnSkipToManual.addEventListener('click', () => {
     dom.formQuestion.focus();
     dom.formQuestion.scrollIntoView({ behavior: 'smooth' });
@@ -456,20 +520,27 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       // Populate Editable Form
-      const { question, options, detectedAnswer } = result.parsed;
+      const { question, options, detectedAnswer, detectedAnswers, detectedType } = result.parsed;
       dom.formQuestion.value = question || '';
       dom.formOptA.value = options.A || '';
       dom.formOptB.value = options.B || '';
       dom.formOptC.value = options.C || '';
       dom.formOptD.value = options.D || '';
       
-      if (detectedAnswer && ['A', 'B', 'C', 'D'].includes(detectedAnswer)) {
-        dom.formCorrectAnswer.value = detectedAnswer;
+      // Auto-set Question Type
+      if (detectedType === 'multiple') {
+        setAddQuestionType('multiple');
+        dom.addMultiCheckboxes.forEach(cb => {
+          cb.checked = (detectedAnswers || []).includes(cb.value);
+        });
+      } else {
+        setAddQuestionType('single');
+        if (detectedAnswer && ['A', 'B', 'C', 'D'].includes(detectedAnswer)) {
+          dom.formCorrectAnswer.value = detectedAnswer;
+        }
       }
 
       showToast('Question extracted! Review & edit below.');
-      
-      // Smooth scroll to edit form
       dom.formQuestion.scrollIntoView({ behavior: 'smooth', block: 'center' });
     } catch (err) {
       console.error('OCR Error:', err);
@@ -489,22 +560,37 @@ document.addEventListener('DOMContentLoaded', () => {
     const optB = dom.formOptB.value.trim();
     const optC = dom.formOptC.value.trim();
     const optD = dom.formOptD.value.trim();
-    const correctAnswer = dom.formCorrectAnswer.value;
 
     if (!question || !optA || !optB || !optC || !optD) {
       showToast('Please fill in the question and all 4 options');
       return;
     }
 
-    if (!correctAnswer) {
-      showToast('Please select the correct answer');
-      return;
+    let correctAnswers = [];
+    if (state.addType === 'multiple') {
+      correctAnswers = Array.from(dom.addMultiCheckboxes)
+        .filter(cb => cb.checked)
+        .map(cb => cb.value);
+
+      if (correctAnswers.length === 0) {
+        showToast('Please check at least one correct option');
+        return;
+      }
+    } else {
+      const selected = dom.formCorrectAnswer.value;
+      if (!selected) {
+        showToast('Please select the correct answer');
+        return;
+      }
+      correctAnswers = [selected];
     }
 
     const questionData = {
       question,
+      type: state.addType,
       options: { A: optA, B: optB, C: optC, D: optD },
-      correctAnswer,
+      correctAnswer: correctAnswers[0],
+      correctAnswers,
       screenshot: state.currentImageDataUrl || null
     };
 
@@ -520,6 +606,8 @@ document.addEventListener('DOMContentLoaded', () => {
       // Clear Form Fields
       dom.addForm.reset();
       dom.formCorrectAnswer.value = '';
+      dom.addMultiCheckboxes.forEach(cb => (cb.checked = false));
+      setAddQuestionType('single');
     } catch (err) {
       console.error('Failed to save question:', err);
       showToast('Error saving question: ' + err.message);
@@ -532,6 +620,8 @@ document.addEventListener('DOMContentLoaded', () => {
     resetUploadState();
     dom.addForm.reset();
     dom.formCorrectAnswer.value = '';
+    dom.addMultiCheckboxes.forEach(cb => (cb.checked = false));
+    setAddQuestionType('single');
     window.scrollTo({ top: 0, behavior: 'smooth' });
     showToast('Ready for next question!');
   });
@@ -550,7 +640,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Pill selection for question count (5, 10, 20, All)
   dom.settingsCountPills.forEach(pill => {
     pill.addEventListener('click', () => {
       dom.settingsCountPills.forEach(p => p.classList.remove('active'));
@@ -566,40 +655,33 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // Determine order
     let selectedOrder = 'sequential';
     dom.orderRadios.forEach(radio => {
       if (radio.checked) selectedOrder = radio.value;
     });
     state.quiz.order = selectedOrder;
 
-    // Clone questions
     let pool = [...state.questions];
 
-    // Apply Randomization if chosen
     if (selectedOrder === 'random') {
       for (let i = pool.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [pool[i], pool[j]] = [pool[j], pool[i]];
       }
     } else {
-      // Sequential: practiced in the original chronological order added
       pool.reverse();
     }
 
-    // Determine number of questions
     let count = pool.length;
     if (state.quiz.countSetting !== 'all') {
       count = Math.min(parseInt(state.quiz.countSetting, 10), pool.length);
     }
     state.quiz.activeQuestions = pool.slice(0, count);
 
-    // Reset quiz tracking
     state.quiz.currentIndex = 0;
     state.quiz.userAnswers = {};
     state.quiz.isCompleted = false;
 
-    // Launch active quiz
     switchView('practice-active');
     renderActiveQuizQuestion();
   });
@@ -609,17 +691,30 @@ document.addEventListener('DOMContentLoaded', () => {
     const currentQ = state.quiz.activeQuestions[state.quiz.currentIndex];
     const totalQ = state.quiz.activeQuestions.length;
     const currentIdx = state.quiz.currentIndex;
+    const isMulti = currentQ.type === 'multiple';
 
     // Header counter: "Question 1 / 25"
     dom.quizCounter.textContent = `Question ${currentIdx + 1} / ${totalQ}`;
     
     // Answered status
-    const answeredCount = Object.keys(state.quiz.userAnswers).length;
+    const answeredCount = Object.keys(state.quiz.userAnswers).filter(k => {
+      const a = state.quiz.userAnswers[k];
+      return Array.isArray(a) ? a.length > 0 : Boolean(a);
+    }).length;
     dom.quizAnsweredStatus.textContent = `${answeredCount} of ${totalQ} answered`;
 
     // Progress bar
     const progressPercent = ((currentIdx + 1) / totalQ) * 100;
     dom.quizProgressBar.style.width = `${progressPercent}%`;
+
+    // Question Type Indicator Badge
+    if (isMulti) {
+      dom.quizTypeBadge.className = 'quiz-type-badge multi';
+      dom.quizTypeBadge.textContent = '☑ Multiple Answers (Checkboxes)';
+    } else {
+      dom.quizTypeBadge.className = 'quiz-type-badge';
+      dom.quizTypeBadge.textContent = '○ Single Answer (Radio)';
+    }
 
     // Attached screenshot preview button
     if (currentQ.screenshot) {
@@ -632,27 +727,51 @@ document.addEventListener('DOMContentLoaded', () => {
     // Question Text
     dom.quizQuestionText.textContent = currentQ.question;
 
-    // Render Options A, B, C, D (touch-friendly radio pills)
+    // Render Options A, B, C, D
     dom.quizOptionsContainer.innerHTML = '';
     const letters = ['A', 'B', 'C', 'D'];
-    const currentSelected = state.quiz.userAnswers[currentIdx];
+    const currentAnswer = state.quiz.userAnswers[currentIdx];
 
     letters.forEach(letter => {
       const optText = currentQ.options?.[letter] || '';
-      const isSelected = currentSelected === letter;
+      
+      let isSelected = false;
+      if (isMulti) {
+        isSelected = Array.isArray(currentAnswer) && currentAnswer.includes(letter);
+      } else {
+        isSelected = currentAnswer === letter;
+      }
 
       const optBtn = document.createElement('div');
       optBtn.className = `quiz-opt-btn ${isSelected ? 'selected' : ''}`;
       optBtn.setAttribute('data-option', letter);
+
+      // Icon: radio circle for single, checkbox square for multiple
+      const iconHtml = isMulti
+        ? `<div class="quiz-opt-square">${isSelected ? '✓' : ''}</div>`
+        : `<div class="quiz-opt-circle">${isSelected ? '●' : '○'}</div>`;
+
       optBtn.innerHTML = `
-        <div class="quiz-opt-circle">${isSelected ? '●' : '○'}</div>
+        ${iconHtml}
         <div class="quiz-opt-text"><strong>${letter}.</strong> ${escapeHtml(optText)}</div>
       `;
 
       optBtn.addEventListener('click', () => {
-        // Record user answer
-        state.quiz.userAnswers[currentIdx] = letter;
-        // Do NOT reveal answer yet, just update selected visual
+        if (isMulti) {
+          // Toggle selection in array
+          let list = Array.isArray(state.quiz.userAnswers[currentIdx])
+            ? [...state.quiz.userAnswers[currentIdx]]
+            : [];
+          if (list.includes(letter)) {
+            list = list.filter(l => l !== letter);
+          } else {
+            list.push(letter);
+          }
+          state.quiz.userAnswers[currentIdx] = list;
+        } else {
+          // Single radio select
+          state.quiz.userAnswers[currentIdx] = letter;
+        }
         renderActiveQuizQuestion();
       });
 
@@ -674,7 +793,6 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
     }
 
-    // Render Bottom Pagination (1 2 3 4 5...)
     renderQuizPagination();
   }
 
@@ -692,7 +810,9 @@ document.addEventListener('DOMContentLoaded', () => {
         bubble.classList.add('current');
       }
 
-      if (state.quiz.userAnswers[i] !== undefined) {
+      const ans = state.quiz.userAnswers[i];
+      const isAnswered = Array.isArray(ans) ? ans.length > 0 : Boolean(ans);
+      if (isAnswered) {
         bubble.classList.add('answered');
       }
 
@@ -705,7 +825,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Prev / Next Button Actions
   dom.btnQuizPrev.addEventListener('click', () => {
     if (state.quiz.currentIndex > 0) {
       state.quiz.currentIndex--;
@@ -719,7 +838,6 @@ document.addEventListener('DOMContentLoaded', () => {
       state.quiz.currentIndex++;
       renderActiveQuizQuestion();
     } else {
-      // Completed Quiz!
       finishQuiz();
     }
   });
@@ -741,18 +859,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
     questions.forEach((q, idx) => {
       const userPick = state.quiz.userAnswers[idx];
-      if (!userPick) {
-        skippedCount++;
-      } else if (userPick === q.correctAnswer) {
-        correctCount++;
+      const isMulti = q.type === 'multiple';
+      const qCorrect = q.correctAnswers || [q.correctAnswer || 'A'];
+
+      if (isMulti) {
+        const userPicks = Array.isArray(userPick) ? userPick : [];
+        if (userPicks.length === 0) {
+          skippedCount++;
+        } else {
+          const sUser = [...userPicks].sort();
+          const sCorrect = [...qCorrect].sort();
+          const isMatch = sUser.length === sCorrect.length && sUser.every((v, i) => v === sCorrect[i]);
+          if (isMatch) correctCount++;
+          else wrongCount++;
+        }
       } else {
-        wrongCount++;
+        if (!userPick) {
+          skippedCount++;
+        } else if (userPick === qCorrect[0]) {
+          correctCount++;
+        } else {
+          wrongCount++;
+        }
       }
     });
 
     const percent = Math.round((correctCount / totalQ) * 100);
 
-    // Update Result View Elements
     dom.resultNumerator.textContent = correctCount;
     dom.resultDenominator.textContent = totalQ;
     dom.resultPercent.textContent = `${percent}%`;
@@ -766,10 +899,7 @@ document.addEventListener('DOMContentLoaded', () => {
       dom.pillSkippedWrap.classList.remove('hidden');
     }
 
-    // Render Detailed Answer Review
     renderAnswerReview(questions);
-
-    // Switch to Result View
     switchView('practice-result');
   }
 
@@ -778,8 +908,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     questions.forEach((q, idx) => {
       const userPick = state.quiz.userAnswers[idx];
-      const isCorrect = userPick === q.correctAnswer;
-      const isSkipped = !userPick;
+      const isMulti = q.type === 'multiple';
+      const qCorrect = q.correctAnswers || [q.correctAnswer || 'A'];
+
+      let isCorrect = false;
+      let isSkipped = false;
+
+      if (isMulti) {
+        const userPicks = Array.isArray(userPick) ? userPick : [];
+        if (userPicks.length === 0) {
+          isSkipped = true;
+        } else {
+          const sUser = [...userPicks].sort();
+          const sCorrect = [...qCorrect].sort();
+          isCorrect = sUser.length === sCorrect.length && sUser.every((v, i) => v === sCorrect[i]);
+        }
+      } else {
+        if (!userPick) {
+          isSkipped = true;
+        } else {
+          isCorrect = userPick === qCorrect[0];
+        }
+      }
 
       const reviewCard = document.createElement('div');
       reviewCard.className = 'review-card';
@@ -794,25 +944,31 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       const letters = ['A', 'B', 'C', 'D'];
+      const userList = Array.isArray(userPick) ? userPick : (userPick ? [userPick] : []);
+
       const optionsHtml = letters.map(letter => {
-        const isUserPick = userPick === letter;
-        const isAnswer = q.correctAnswer === letter;
+        const isUserPick = userList.includes(letter);
+        const isAnswer = qCorrect.includes(letter);
         
         let rowClass = 'review-opt-row';
         if (isAnswer) rowClass += ' is-correct-answer';
-        if (isUserPick && !isCorrect) rowClass += ' is-user-pick is-wrong';
+        if (isUserPick && !isAnswer) rowClass += ' is-user-pick is-wrong';
 
         let badge = '';
-        if (isAnswer) {
+        if (isAnswer && isUserPick) {
+          badge = `<span class="review-indicator-badge correct-pick">Correct Pick</span>`;
+        } else if (isAnswer) {
           badge = `<span class="review-indicator-badge correct-pick">Correct Answer</span>`;
         } else if (isUserPick) {
           badge = `<span class="review-indicator-badge user-pick">Your Pick</span>`;
         }
 
+        const marker = isMulti ? (isUserPick ? '☑' : '☐') : `${letter}.`;
+
         return `
           <div class="${rowClass}">
             <div class="review-opt-left">
-              <strong>${letter}.</strong>
+              <strong>${marker}</strong>
               <span>${escapeHtml(q.options?.[letter] || '')}</span>
             </div>
             ${badge}
@@ -820,9 +976,17 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
       }).join('');
 
+      const userDisplay = userList.length > 0 ? userList.map(l => `Option ${l}`).join(', ') : 'None';
+      const correctDisplay = qCorrect.map(l => `Option ${l}`).join(', ');
+
       reviewCard.innerHTML = `
         <div class="review-card-top">
-          <span class="item-index">Question ${idx + 1}</span>
+          <div>
+            <span class="item-index">Question ${idx + 1}</span>
+            <span class="item-type-tag ${isMulti ? 'multi' : ''}">
+              ${isMulti ? '☑ Multiple Choice' : '○ Single Choice'}
+            </span>
+          </div>
           ${statusBadge}
         </div>
         <h4 class="review-question-title">${escapeHtml(q.question)}</h4>
@@ -830,8 +994,8 @@ document.addEventListener('DOMContentLoaded', () => {
           ${optionsHtml}
         </div>
         <div class="review-summary-row">
-          <span>Your Answer: <strong>${userPick ? `Option ${userPick}` : 'None'}</strong></span>
-          <span>Correct Answer: <strong>Option ${q.correctAnswer}</strong></span>
+          <span>Your Answer: <strong>${userDisplay}</strong></span>
+          <span>Correct Answer: <strong>${correctDisplay}</strong></span>
           ${q.screenshot ? `<button type="button" class="btn btn-text btn-xs review-shot-btn">View Screenshot</button>` : ''}
         </div>
       `;
@@ -847,7 +1011,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Practice Again (Restart with same questions / unlimited times)
   dom.btnPracticeAgain.addEventListener('click', () => {
     switchView('practice-settings');
   });
@@ -881,7 +1044,18 @@ document.addEventListener('DOMContentLoaded', () => {
     dom.modalEditOptB.value = q.options?.B || '';
     dom.modalEditOptC.value = q.options?.C || '';
     dom.modalEditOptD.value = q.options?.D || '';
-    dom.modalEditCorrect.value = q.correctAnswer || 'A';
+
+    const isMulti = q.type === 'multiple';
+    setModalEditQuestionType(isMulti ? 'multiple' : 'single');
+
+    const correctList = q.correctAnswers || [q.correctAnswer || 'A'];
+    if (isMulti) {
+      dom.modalMultiCheckboxes.forEach(cb => {
+        cb.checked = correctList.includes(cb.value);
+      });
+    } else {
+      dom.modalEditCorrect.value = correctList[0] || 'A';
+    }
 
     if (q.screenshot) {
       dom.modalEditShotPreview.src = q.screenshot;
@@ -906,16 +1080,34 @@ document.addEventListener('DOMContentLoaded', () => {
   dom.modalEditForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const id = dom.modalEditId.value;
+    const isMulti = state.modalEditType === 'multiple';
+
+    let correctAnswers = [];
+    if (isMulti) {
+      correctAnswers = Array.from(dom.modalMultiCheckboxes)
+        .filter(cb => cb.checked)
+        .map(cb => cb.value);
+
+      if (correctAnswers.length === 0) {
+        showToast('Please check at least one correct option');
+        return;
+      }
+    } else {
+      correctAnswers = [dom.modalEditCorrect.value];
+    }
+
     const updated = {
       id,
       question: dom.modalEditQuestion.value.trim(),
+      type: state.modalEditType,
       options: {
         A: dom.modalEditOptA.value.trim(),
         B: dom.modalEditOptB.value.trim(),
         C: dom.modalEditOptC.value.trim(),
         D: dom.modalEditOptD.value.trim()
       },
-      correctAnswer: dom.modalEditCorrect.value
+      correctAnswer: correctAnswers[0],
+      correctAnswers
     };
 
     try {

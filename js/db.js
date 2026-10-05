@@ -88,15 +88,27 @@ class MCQDatabase {
   }
 
   async addQuestion(questionData) {
+    const type = questionData.type === 'multiple' ? 'multiple' : 'single';
+    let correctAnswers = [];
+    if (Array.isArray(questionData.correctAnswers) && questionData.correctAnswers.length > 0) {
+      correctAnswers = [...questionData.correctAnswers];
+    } else if (questionData.correctAnswer) {
+      correctAnswers = [questionData.correctAnswer];
+    } else {
+      correctAnswers = ['A'];
+    }
+
     const item = {
       question: questionData.question.trim(),
+      type: type, // 'single' | 'multiple'
       options: {
         A: (questionData.options?.A || '').trim(),
         B: (questionData.options?.B || '').trim(),
         C: (questionData.options?.C || '').trim(),
         D: (questionData.options?.D || '').trim()
       },
-      correctAnswer: questionData.correctAnswer || 'A',
+      correctAnswer: correctAnswers[0] || 'A', // backward compatibility
+      correctAnswers: correctAnswers, // Array of 'A' | 'B' | 'C' | 'D'
       screenshot: questionData.screenshot || null,
       createdAt: Date.now()
     };
@@ -128,16 +140,30 @@ class MCQDatabase {
           return;
         }
 
+        const type = questionData.type || existing.type || 'single';
+        let correctAnswers = [];
+        if (Array.isArray(questionData.correctAnswers) && questionData.correctAnswers.length > 0) {
+          correctAnswers = [...questionData.correctAnswers];
+        } else if (questionData.correctAnswer) {
+          correctAnswers = [questionData.correctAnswer];
+        } else if (existing.correctAnswers) {
+          correctAnswers = [...existing.correctAnswers];
+        } else {
+          correctAnswers = [existing.correctAnswer || 'A'];
+        }
+
         const updated = {
           ...existing,
           question: questionData.question.trim(),
+          type: type,
           options: {
             A: (questionData.options?.A || '').trim(),
             B: (questionData.options?.B || '').trim(),
             C: (questionData.options?.C || '').trim(),
             D: (questionData.options?.D || '').trim()
           },
-          correctAnswer: questionData.correctAnswer || existing.correctAnswer,
+          correctAnswer: correctAnswers[0] || 'A',
+          correctAnswers: correctAnswers,
           screenshot: questionData.screenshot !== undefined ? questionData.screenshot : existing.screenshot,
           updatedAt: Date.now()
         };
@@ -224,33 +250,47 @@ class MCQDatabase {
     const samples = [
       {
         question: "What is the default port of HTTP?",
+        type: "single",
         options: {
           A: "21",
           B: "80",
           C: "443",
           D: "25"
         },
-        correctAnswer: "B"
+        correctAnswers: ["B"]
+      },
+      {
+        question: "Which of the following are valid application layer protocols? (Select all that apply)",
+        type: "multiple",
+        options: {
+          A: "HTTP",
+          B: "DNS",
+          C: "TCP",
+          D: "SMTP"
+        },
+        correctAnswers: ["A", "B", "D"]
       },
       {
         question: "Which protocol is connection-oriented?",
+        type: "single",
         options: {
           A: "UDP",
           B: "IP",
           C: "TCP",
           D: "ICMP"
         },
-        correctAnswer: "C"
+        correctAnswers: ["C"]
       },
       {
         question: "What is the function of DNS?",
+        type: "single",
         options: {
           A: "Translate domain names to IP addresses",
           B: "Encrypt data in transit",
           C: "Manage routing tables",
           D: "Assign dynamic IP addresses to clients"
         },
-        correctAnswer: "A"
+        correctAnswers: ["A"]
       }
     ];
 

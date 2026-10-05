@@ -13,7 +13,10 @@ A clean, mobile-first web application designed with a single focused purpose:
   - Client-side in-browser OCR (powered by Tesseract.js) to extract Question, Option A, Option B, Option C, and Option D.
   - Quick editable form to verify or correct any OCR inaccuracies.
   - Dropdown to select the Correct Answer.
-  - Immediate **"✓ Question Added"** confirmation with **"+ Add Another Question"** for rapid multi-question entry.
+- **Question Types (Single & Multiple Answers)**:
+  - **Single Answer (Radio button)**: Select exactly one correct option with radio indicators (`○` / `●`).
+  - **Multiple Answers (Checkbox)**: Select two or more correct options with checkbox indicators (`☐` / `☑`) for questions with multiple correct choices (e.g. *"Select all that apply"*).
+  - Both types are fully supported in manual entry, OCR extraction, Question List, Active Quiz, and the final Answer Review.
 - **Local Storage (IndexedDB)**:
   - All questions and original screenshots are stored locally in the browser.
   - Zero login, zero backend, zero external database required.
